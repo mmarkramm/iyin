@@ -42,6 +42,8 @@
 
       body {
         height: 100vh;
+        min-height: 100svh;
+        height: var(--visible-viewport-height, 100dvh);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -58,7 +60,11 @@
         width: 100%;
         max-width: 800px;
         aspect-ratio: 1024 / 540;
-        max-height: calc(100vh - 32px);
+        /* Keep the complete scene inside the visible viewport, including
+           mobile browser bars and a little breathing room around it. */
+        max-width: calc(100vw - 32px);
+        max-width: min(800px, calc(100vw - 32px), var(--scene-width-for-height, 800px));
+        max-height: calc(var(--visible-viewport-height, 100dvh) - 32px);
         animation: pageIntro 0.9s ease both;
       }
 
@@ -525,8 +531,18 @@
       }
 
       @media (max-width: 720px) {
-        body { padding: 10px; }
-        .main-container { max-width: 100%; }
+        body {
+          padding: 10px;
+          min-height: 100svh;
+          height: var(--visible-viewport-height, 100dvh);
+        }
+        .main-container {
+          width: 100%;
+          /* Roughly 16px of clear space above and below the scene also
+             keeps the 3% hug pulse from touching the viewport edges. */
+          max-width: min(100%, var(--scene-width-for-height, 800px));
+          max-height: calc(var(--visible-viewport-height, 100dvh) - 32px);
+        }
         #secretModal, #psModal { padding: 12px; }
         .modal-content {
           max-width: 100%;
@@ -720,6 +736,28 @@
     </div>
 
     <script>
+      // Mobile browser toolbars change the actually visible height without
+      // always updating legacy 100vh. Keep CSS tied to the live viewport.
+      function updateVisibleViewportHeight() {
+        const visibleHeight = window.visualViewport?.height || window.innerHeight;
+        const sceneWidthForHeight = Math.max(
+          0,
+          visibleHeight * (1024 / 540) - 61,
+        );
+        document.documentElement.style.setProperty(
+          "--visible-viewport-height",
+          `${visibleHeight}px`,
+        );
+        document.documentElement.style.setProperty(
+          "--scene-width-for-height",
+          `${sceneWidthForHeight}px`,
+        );
+      }
+
+      updateVisibleViewportHeight();
+      window.addEventListener("resize", updateVisibleViewportHeight);
+      window.visualViewport?.addEventListener("resize", updateVisibleViewportHeight);
+
       /* ============================================================
          CONFIG — everything person-specific lives here.
       ============================================================= */
