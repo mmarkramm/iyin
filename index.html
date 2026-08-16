@@ -431,6 +431,18 @@
         transform: scale(1.06);
       }
 
+      /* Chill heartbeat while the cat storm rains — a soft pulse that
+         highlights the playful text, then eases back out on revert. */
+      @keyframes catBeat {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+      }
+
+      .name-overlay.storm span {
+        animation: catBeat 0.9s ease-in-out infinite;
+      }
+
+
       /* Fill sweeps across the badge as she holds, mirroring the hug bar. */
       .name-hold-fill {
         position: absolute;
