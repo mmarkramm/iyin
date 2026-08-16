@@ -28,10 +28,21 @@
     <meta name="twitter:description" content="tap to find out :)" />
     <meta name="twitter:image" content="assets/opening.png" />
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Load the optional web font without making the first paint wait for it. -->
     <link
       href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
 
     <style>
       * {
@@ -715,7 +726,7 @@
       </div>
 
       <div id="flashOverlay"></div>
-      <img id="bg" class="scene-img" src="assets/opening.png" />
+      <img id="bg" class="scene-img" src="assets/opening.webp" />
 
       <div id="speechOverlay" class="speech-overlay">
         <div id="speechBubble" class="speech-bubble">
@@ -739,7 +750,8 @@
       // Mobile browser toolbars change the actually visible height without
       // always updating legacy 100vh. Keep CSS tied to the live viewport.
       function updateVisibleViewportHeight() {
-        const visibleHeight = window.visualViewport?.height || window.innerHeight;
+        const viewport = window.visualViewport;
+        const visibleHeight = (viewport && viewport.height) || window.innerHeight;
         const sceneWidthForHeight = Math.max(
           0,
           visibleHeight * (1024 / 540) - 61,
@@ -756,7 +768,9 @@
 
       updateVisibleViewportHeight();
       window.addEventListener("resize", updateVisibleViewportHeight);
-      window.visualViewport?.addEventListener("resize", updateVisibleViewportHeight);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", updateVisibleViewportHeight);
+      }
 
       /* ============================================================
          CONFIG — everything person-specific lives here.
@@ -787,8 +801,8 @@
         quickHugCancelCount: 4,
 
         images: {
-          opening: "assets/opening.png",
-          final: "assets/final_default.png",
+          opening: "assets/opening.webp",
+          final: "assets/final_default.webp",
         },
 
         introMessages: [
@@ -930,9 +944,6 @@
         if (holding) e.preventDefault();
       });
 
-      const preloadImg = new Image();
-      preloadImg.src = config.images.final;
-
       let scene = 1;
       let step = 0;
       let progress = 0;
@@ -960,6 +971,15 @@
       let typeInterval = null;
       let isTyping = false;
       let currentTargetText = "";
+      let finalImagePreloadStarted = false;
+
+      function preloadFinalImage() {
+        if (finalImagePreloadStarted) return;
+        finalImagePreloadStarted = true;
+        const image = new Image();
+        image.decoding = "async";
+        image.src = config.images.final;
+      }
 
       function vibrate(ms = 25) {
         if (navigator.vibrate) {
@@ -1220,6 +1240,9 @@
 
       function setupHug() {
         scene = 2;
+        // The opening scene gets the network to itself. Start fetching the
+        // next scene only once the user has reached the hug interaction.
+        preloadFinalImage();
         cancelCount = 0;
         hugThanksShown = false;
         bg.classList.remove("idle-sway"); // done once the intro scene ends
