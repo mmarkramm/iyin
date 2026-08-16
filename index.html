@@ -898,7 +898,14 @@
         }
       }
 
-      continuePortraitBtn.addEventListener("click", () => {
+      // The portrait prompt sits inside <body>, whose click handler drives the
+      // story. Keep every interaction with this prompt outside that handler.
+      ["pointerdown", "click"].forEach((eventName) => {
+        rotateOverlay.addEventListener(eventName, (e) => e.stopPropagation());
+      });
+
+      continuePortraitBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         portraitDismissed = true;
         rotateOverlay.classList.remove("active");
       });
@@ -1087,6 +1094,8 @@
       bg.classList.add("idle-sway"); // gentle sway during the quiet intro
 
       document.body.addEventListener("click", (e) => {
+        if (rotateOverlay.classList.contains("active")) return;
+
         if (
           secretModal.style.display === "flex" ||
           psModal.style.display === "flex" ||
