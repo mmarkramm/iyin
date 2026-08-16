@@ -32,14 +32,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Load the optional web font without making the first paint wait for it. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap"
       rel="stylesheet"
       media="print"
       onload="this.media='all'"
     />
     <noscript>
       <link
-        href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap"
         rel="stylesheet"
       />
     </noscript>
@@ -185,9 +185,14 @@
 
       .letter-p {
         font-size: 15px;
+        font-family: "Quicksand", sans-serif;
+        font-weight: 500;
+        font-style: normal;
+        line-height: 1.75;
         text-align: left;
-        text-indent: 35px;
-        margin-bottom: 15px;
+        text-indent: 1.75em;
+        margin-bottom: 18px;
+        letter-spacing: 0;
       }
 
       .cat-slideshow {
@@ -219,6 +224,12 @@
         font-style: italic;
       }
 
+      @media (min-width: 721px) {
+        .letter-p {
+          font-size: 16px;
+        }
+      }
+
       #flashOverlay {
         position: absolute;
         top: 0;
@@ -228,7 +239,8 @@
         background: #ffecd2;
         opacity: 0;
         pointer-events: none;
-        z-index: 200;
+        /* Scene transition layer: above scene effects, below both modals. */
+        z-index: 20;
         transition: opacity 0.15s ease-in-out;
       }
 
@@ -391,7 +403,47 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        position: relative;
+        overflow: hidden;
+        white-space: nowrap;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: transform 0.2s ease;
       }
+
+
+      /* Cat-storm easter egg: the badge is quietly holdable on the final
+         scene. A soft glow invites the long-press without spelling it out. */
+      .name-overlay.holdable span {
+        cursor: pointer;
+      }
+
+      @keyframes nameHintGlow {
+        0%, 100% { box-shadow: 0 2px 6px rgba(214, 100, 130, 0.2); }
+        50% { box-shadow: 0 0 14px rgba(245, 184, 196, 0.95); }
+      }
+
+      .name-overlay.hint-glow span {
+        animation: nameHintGlow 2.2s ease-in-out infinite;
+      }
+
+      .name-overlay.holding span {
+        transform: scale(1.06);
+      }
+
+      /* Fill sweeps across the badge as she holds, mirroring the hug bar. */
+      .name-hold-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, rgba(255, 152, 172, 0.55), rgba(245, 184, 196, 0.75));
+        z-index: -1;
+        pointer-events: none;
+        border-radius: 999px;
+      }
+
 
       .name-overlay span::before {
         content: "😽🧕";
@@ -402,6 +454,15 @@
         content: "📚✨";
         font-size: 0.85em;
       }
+
+      /* During the cat storm the badge only shows the playful text, so
+         hide the decorative name emojis until it reverts to her name. */
+      .name-overlay.storm span::before,
+      .name-overlay.storm span::after {
+        content: "";
+        display: none;
+      }
+
 
       .bottom-hint {
         position: absolute;
@@ -564,8 +625,7 @@
         .bottom-hint { max-width: 90%; bottom: 5%; padding: 6px 10px; }
         .hint-text { font-size: 15px; }
         .progress-container { bottom: 20%; }
-        .letter-p { font-size: 14px; text-indent: 28px; }
-        .handwritten-msg { font-size: 16px; }
+        .letter-p { font-size: 15px; line-height: 1.75; text-indent: 1.75em; }
         .close-btn { width: 32px; height: 32px; font-size: 18px; margin-top: -8px; margin-right: -8px; }
         .pin-wrapper { width: 60px; }
       }
@@ -655,11 +715,11 @@
               To my cutie indo friend...
             </h2>
 
-            <p id="secretBodyMain" class="letter-p handwritten-msg"></p>
+            <p id="secretBodyMain" class="letter-p"></p>
 
             <p
               id="secretBodySecondary"
-              class="letter-p handwritten-msg"
+              class="letter-p"
               style="margin-bottom: 0px; padding-bottom: 0px"
             ></p>
 
@@ -876,7 +936,26 @@
         },
 
         nameOverlayPosition: { top: "68%", left: "50%", width: "40%" },
+
+        // Hidden "cat storm" easter egg: long-press her name badge on the
+        // final scene. A soft glow hints it's holdable; holding for
+        // holdDurationMs turns the confetti into cats and cycles the badge
+        // through the textStages before reverting after totalDurationMs.
+        catStorm: {
+          holdDurationMs: 3000,
+          totalDurationMs: 12000,
+          catEmojis: ["🐈", "🐱", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😾", "🐾"],
+          accentEmojis: ["✨", "💖", "💧", "💦", "💕", "⭐", "💫"],
+          catRatio: 0.7,
+          textStages: [
+            { atMs: 0, text: "cat storm activated 🐾🥳" },
+            { atMs: 3500, text: "it's raining cats!! 🐈🌧️" },
+            { atMs: 7000, text: "pspspsps 🐈✨" },
+          ],
+        },
+
       };
+
       /* ============================================================
          END CONFIG
       ============================================================= */
@@ -923,6 +1002,13 @@
       const flashOverlay = document.getElementById("flashOverlay");
       const secretModal = document.getElementById("secretModal");
       const psModal = document.getElementById("psModal");
+
+      // .main-container uses a transform animation, which creates a separate
+      // stacking context. Confetti is appended directly to <body>, so nested
+      // modal z-index values cannot otherwise layer above it. Portal both
+      // fixed modals to <body> so all three layers share the root context.
+      document.body.append(secretModal, psModal);
+
       const speechText = document.getElementById("speechText");
       const speechOverlayEl = document.getElementById("speechOverlay");
       const speechBubbleEl = document.getElementById("speechBubble");
@@ -1188,11 +1274,11 @@
       });
 
       function openModal() {
+        // A final-scene tap briefly flashes the scene. Clear it before showing
+        // the note so the flash cannot wash over the modal on the unlock tap.
+        flashOverlay.style.transition = "none";
+        flashOverlay.style.opacity = "0";
         secretModal.style.display = "flex";
-        // little celebration burst right as the secret unlocks
-        for (let i = 0; i < 22; i++) {
-          setTimeout(() => spawnConfetti(), i * 25);
-        }
       }
 
       function getNextFinalMessage() {
@@ -1425,6 +1511,10 @@
             orderedFinalMessageIndex = 1;
             hint.innerText = "tap for more :)";
             startConfetti();
+            // Quietly invite the hidden name-hold easter egg now that the
+            // badge is on screen.
+            nameOverlay.classList.add("holdable", "hint-glow");
+
 
             setTimeout(() => {
               flashOverlay.style.opacity = "0";
@@ -1443,17 +1533,51 @@
         setTimeout(() => heart.remove(), 1500);
       }
 
+      const activeConfetti = new Set();
+      const MAX_ACTIVE_CONFETTI = 68;
+      let confettiInterval = null;
+
       function startConfetti() {
-        for (let i = 0; i < 20; i++) spawnConfetti();
-        setInterval(spawnConfetti, 100);
+        stopConfetti(true);
+        for (let i = 0; i < 32; i++) spawnConfetti();
+        confettiInterval = setInterval(spawnConfettiBurst, 140);
+      }
+
+      function stopConfetti(removeExisting = false) {
+        if (confettiInterval) {
+          clearInterval(confettiInterval);
+          confettiInterval = null;
+        }
+
+        if (removeExisting) {
+          activeConfetti.forEach((element) => element.remove());
+          activeConfetti.clear();
+        }
+      }
+
+      function spawnConfettiBurst() {
+        spawnConfetti();
+        spawnConfetti();
       }
 
       function spawnConfetti() {
+        if (activeConfetti.size >= MAX_ACTIVE_CONFETTI) return;
+
         const confetti = document.createElement("div");
         confetti.className = "confetti";
         confetti.style.left = Math.random() * 100 + "%";
 
-        if (Math.random() < 0.5) {
+        if (catStormActive) {
+          // Cat storm: mostly cat emoji with a few sparkle/heart accents.
+          const useCat = Math.random() < config.catStorm.catRatio;
+          const pool = useCat
+            ? config.catStorm.catEmojis
+            : config.catStorm.accentEmojis;
+          confetti.innerText = pool[Math.floor(Math.random() * pool.length)];
+          confetti.style.fontSize = useCat ? "26px" : "20px";
+          confetti.style.pointerEvents = "none";
+          confetti.style.userSelect = "none";
+        } else if (Math.random() < 0.5) {
           const colors = ["#ffb7b2", "#ffdac1", "#e2f0cb", "#b5ead7", "#c7ceea", "#fff4bd"];
           confetti.style.width = "10px";
           confetti.style.height = "10px";
@@ -1472,8 +1596,159 @@
         confetti.style.animationDuration = `${fallDuration}, ${swingDuration}`;
         confetti.style.opacity = Math.random() * 0.5 + 0.5;
         document.body.appendChild(confetti);
-        setTimeout(() => confetti.remove(), 5000);
+        activeConfetti.add(confetti);
+        setTimeout(() => {
+          confetti.remove();
+          activeConfetti.delete(confetti);
+        }, 5000);
       }
+
+      /* ============================================================
+         CAT STORM EASTER EGG
+         Long-press her name badge (final scene) for 3s to summon a
+         storm of cat emoji, cycle the badge through playful text, then
+         quietly revert after ~8s. First-ever summon adds an upward
+         "whoosh"; later summons rain straight down.
+      ============================================================= */
+      let catStormActive = false;
+      let catStormEverTriggered = false;
+      let nameHoldTimeout = null;
+      let nameHoldRaf = null;
+      let nameHoldStartTs = 0;
+      let nameHoldPointerId = null;
+      const catStormTimers = [];
+      const nameHoldFill = document.createElement("div");
+      nameHoldFill.className = "name-hold-fill";
+
+      function spawnCatWhoosh() {
+        // One-time upward burst on the first summon, reusing the heart
+        // float-up animation with cat emoji instead.
+        const burst = config.catStorm.catEmojis;
+        for (let i = 0; i < 14; i++) {
+          setTimeout(() => {
+            const el = document.createElement("div");
+            el.className = "heart";
+            el.innerText = burst[Math.floor(Math.random() * burst.length)];
+            el.style.left = Math.random() * 80 + 10 + "%";
+            el.style.bottom = "30%";
+            el.style.fontSize = "28px";
+            el.style.animationDuration = "1.8s";
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 1800);
+          }, i * 40);
+        }
+      }
+
+      function clearCatStormTimers() {
+        while (catStormTimers.length) clearTimeout(catStormTimers.pop());
+      }
+
+      function startCatStorm() {
+        // Restart cleanly if she re-triggers mid-storm (no stacking).
+        clearCatStormTimers();
+        catStormActive = true;
+        nameOverlay.classList.remove("hint-glow");
+        nameOverlay.classList.add("storm");
+
+
+        vibrate([30, 60, 30, 60, 30]);
+
+        // First-ever summon gets the upward whoosh; repeats go to rain.
+        if (!catStormEverTriggered) {
+          catStormEverTriggered = true;
+          spawnCatWhoosh();
+        }
+
+        // Cycle the badge text through the configured stages.
+        config.catStorm.textStages.forEach((stage) => {
+          catStormTimers.push(
+            setTimeout(() => {
+              nameText.innerText = stage.text;
+            }, stage.atMs),
+          );
+        });
+
+        // Revert everything once the storm's total duration elapses.
+        catStormTimers.push(
+          setTimeout(() => {
+            catStormActive = false;
+            nameText.innerText = config.name;
+            nameOverlay.classList.remove("storm");
+            if (scene === 3) nameOverlay.classList.add("hint-glow");
+          }, config.catStorm.totalDurationMs),
+
+        );
+      }
+
+      function resetNameHoldVisual() {
+        nameOverlay.classList.remove("holding");
+        nameHoldFill.style.transition = "width 0.2s ease";
+        nameHoldFill.style.width = "0%";
+        if (nameHoldRaf) {
+          cancelAnimationFrame(nameHoldRaf);
+          nameHoldRaf = null;
+        }
+      }
+
+      function cancelNameHold() {
+        if (nameHoldTimeout) {
+          clearTimeout(nameHoldTimeout);
+          nameHoldTimeout = null;
+        }
+        nameHoldPointerId = null;
+        resetNameHoldVisual();
+      }
+
+      function nameHoldStart(e) {
+        // Only holdable on the final scene, and never while a storm runs.
+        if (scene !== 3 || catStormActive) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        nameHoldPointerId = e.pointerId;
+        nameHoldStartTs = performance.now();
+        nameOverlay.classList.add("holding");
+        vibrate(15);
+
+        // Animate the fill from 0 → 100% across the hold duration.
+        nameHoldFill.style.transition = "none";
+        nameHoldFill.style.width = "0%";
+        const duration = config.catStorm.holdDurationMs;
+        const tick = () => {
+          const elapsed = performance.now() - nameHoldStartTs;
+          const pct = Math.min(100, (elapsed / duration) * 100);
+          nameHoldFill.style.width = pct + "%";
+          if (pct < 100) nameHoldRaf = requestAnimationFrame(tick);
+        };
+        nameHoldRaf = requestAnimationFrame(tick);
+
+        nameHoldTimeout = setTimeout(() => {
+          nameHoldTimeout = null;
+          resetNameHoldVisual();
+          startCatStorm();
+        }, duration);
+      }
+
+      function nameHoldEnd(e) {
+        if (nameHoldPointerId !== null && e && e.pointerId !== undefined &&
+            e.pointerId !== nameHoldPointerId) {
+          return;
+        }
+        cancelNameHold();
+      }
+
+      // Wire up the name badge as a hold target. stopPropagation on the
+      // overlay keeps these gestures from firing the scene tap handler.
+      nameOverlay.style.pointerEvents = "auto";
+      nameOverlay.appendChild(nameHoldFill);
+      nameOverlay.addEventListener("pointerdown", nameHoldStart);
+      nameOverlay.addEventListener("pointerup", nameHoldEnd);
+      nameOverlay.addEventListener("pointerleave", nameHoldEnd);
+      nameOverlay.addEventListener("pointercancel", nameHoldEnd);
+      ["click", "pointerdown"].forEach((evt) =>
+        nameOverlay.addEventListener(evt, (e) => e.stopPropagation()),
+      );
+
 
       function createRipple(e) {
         const ripple = document.createElement("div");
